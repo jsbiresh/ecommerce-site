@@ -29,14 +29,13 @@ const loginUserControl = asyncHandler(async (req, res) => {
   if (findUser && (await findUser.isPasswordMatch(password))) {
     // res.json(findUser);
     res.json({
-        _id: findUser?._id,
-        firstname: findUser?.firstname,
-        lastname: findUser?.lastname,
-        email: findUser?.email,
-        mobile: findUser?.mobile,
-        token: generateToken(findUser?._id)
-
-    })
+      _id: findUser?._id,
+      firstname: findUser?.firstname,
+      lastname: findUser?.lastname,
+      email: findUser?.email,
+      mobile: findUser?.mobile,
+      token: generateToken(findUser?._id),
+    });
     // const responseBody = {
     //   _id: findUser?._id,
     //   firstname: findUser?.firstname,
@@ -53,20 +52,68 @@ const loginUserControl = asyncHandler(async (req, res) => {
   }
 });
 
-
-
-// GET all Users 
+// GET all Users
 const getAllUsers = asyncHandler(async (req, res) => {
-    
-    try {
-        const getUsers = await User.find();
-        res.json(getUsers);
-    } catch (error) {
-        throw new Error(error);        
+  try {
+    const getUsers = await User.find();
+    // console.log(getUsers);
+    res.json(getUsers);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// GET a Single User
+const getAUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  try {
+    // console.log(id)
+    const userFound = await User.findById(id);
+    if (userFound) {
+      //   console.log(userFound);
+      res.json(userFound);
+    } else {
+      res.json({
+        msg: "User Not Found Bro.",
+      });
     }
+  } catch (error) {
+    throw new Error(error);
+  }
+});
 
+// DELETE a User
+const deleteAUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  try {
+    const userToBeDeleted = await User.findByIdAndDelete(id);
+    if (userToBeDeleted) {
+    //   console.log(`Delete Success.`);
+      res.status(204).json({ msg: `User with ID ${id} Deleted.` });
+    } else {
+      res.status(404).json({ message: "User Not Found." });
+    }
+  } catch (error) {
+    throw new Error(error);
+  }
+});
 
-    
+// UPDATE a User 
+const updateAUser = asyncHandler(async (req, res) => {
+    const { id } = req.params
+    try {
+        const userToBeDeleted = await User.findByIdAndUpdate(id);
+    } catch (error) {
+        throw new Error(error);
+    }
 })
 
-module.exports = { createUser, loginUserControl, getAllUsers };
+module.exports = {
+  createUser,
+  loginUserControl,
+  getAllUsers,
+  getAUser,
+  deleteAUser,
+};
+
+1:07:33
