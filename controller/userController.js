@@ -1,6 +1,10 @@
 const generateToken = require("../config/jwtToken");
 const User = require("../models/userModel");
 const asyncHandler = require("express-async-handler");
+const validateMongoDbID = require("../utils/validateMongoDbID");
+const generateRefreshToken = require("../config/refreshToken");
+const jwt = require("jsonwebtoken");
+// ==================================================================
 
 // For User creation
 const createUser = asyncHandler(async (req, res) => {
@@ -27,7 +31,16 @@ const loginUserControl = asyncHandler(async (req, res) => {
   // check if user exists or not
   const findUser = await User.findOne({ email: email });
   if (findUser && (await findUser.isPasswordMatch(password))) {
-    // res.json(findUser);
+    const refreshToken = await generateRefreshToken(findUser?.id);
+    const updateUser = await User.findByIdAndUpdate(
+      findUser.id,
+      { refreshToken: refreshToken },
+      { new: true }
+    );
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      maxAge: 72 * 60 * 60 * 1000,
+    });
     res.json({
       _id: findUser?._id,
       firstname: findUser?.firstname,
@@ -36,20 +49,29 @@ const loginUserControl = asyncHandler(async (req, res) => {
       mobile: findUser?.mobile,
       token: generateToken(findUser?._id),
     });
-    // const responseBody = {
-    //   _id: findUser?._id,
-    //   firstname: findUser?.firstname,
-    //   lastname: findUser?.lastname,
-    //   email: findUser?.email,
-    //   mobile: findUser?.mobile,
-    //   token: generateToken(findUser?._id),
-    // };
-
-    // res.json(responseBody);
-    // console.log(responseBody); // Log the response body
   } else {
     throw new Error("Invalid Credentials.");
   }
+});
+
+// HANDLE refresh token
+const handleRefreshToken = asyncHandler(async (req, res) => {
+  const cookie = req.cookies;
+  if (!cookie?.refreshToken) {
+    throw new Error("No Refresh Token in Cookies.");
+  }
+  const refreshToken = cookie.refreshToken;
+  const user = await User.findOne({ refreshToken });
+  if (!user) {
+    throw new Error(`No Refresh Token in Database, or didn't Match.`);
+  }
+  jwt.verify(refreshToken, process.env.JWT_SECRET, (err, decoded) => {
+    if (err || user.id !== decoded.id) {
+      throw new Error(`There is something wrong with Refresh Token.`);
+    }
+    const accessToken = generateToken(user?.id);
+    res.json({ accessToken });
+  });
 });
 
 // GET all Users
@@ -66,6 +88,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
 // GET a Single User
 const getAUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  validateMongoDbID(id);
   try {
     // console.log(id)
     const userFound = await User.findById(id);
@@ -82,9 +105,14 @@ const getAUser = asyncHandler(async (req, res) => {
   }
 });
 
+
+
+
+
 // DELETE a User
 const deleteAUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  validateMongoDbID(id);
   try {
     const userToBeDeleted = await User.findByIdAndDelete(id);
     if (userToBeDeleted) {
@@ -98,11 +126,14 @@ const deleteAUser = asyncHandler(async (req, res) => {
   }
 });
 
+
+
+
+
 // UPDATE a User
 const updateAUser = asyncHandler(async (req, res) => {
   const { id } = req.user;
-  console.log(req.user);
-  console.log(id);
+  validateMongoDbID(id);
   try {
     const userToBeUpdated = await User.findByIdAndUpdate(
       id,
@@ -120,9 +151,14 @@ const updateAUser = asyncHandler(async (req, res) => {
   }
 });
 
+
+
+
+
 // BLOCK a User
 const blockUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  validateMongoDbID(id);
   try {
     const blockU = await User.findByIdAndUpdate(
       id,
@@ -130,15 +166,20 @@ const blockUser = asyncHandler(async (req, res) => {
       { new: true }
     );
     res.json({
-      msg: `User Blocked.`
-    })
+      msg: `User Blocked.`,
+    });
   } catch (error) {
     throw new Error(error);
   }
 });
+
+
+
+
 // UNBLOCK a User
 const unblockUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  validateMongoDbID(id);
   try {
     const unblockU = await User.findByIdAndUpdate(
       id,
@@ -146,12 +187,34 @@ const unblockUser = asyncHandler(async (req, res) => {
       { new: true }
     );
     res.json({
-      msg: `User Unblocked.`
-    })
+      msg: `User Unblocked.`,
+    });
   } catch (error) {
     throw new Error(error);
   }
 });
+
+
+
+
+// LOGOUT a User
+const logoutUserControl = asyncHandler(async (req, res) => {
+  const cookie = req.cookies; // Corrected accessing cookies
+  if (!cookie?.refreshToken) {
+    throw new Error("No Refresh Token in Cookies.");
+  }
+  const refreshToken = cookie.refreshToken;
+  const user = await User.findOne({ refreshToken });
+  if (!user) {
+    res.clearCookie("refreshToken", { httpOnly: true, secure: true });
+    res.sendStatus(204); // Sending status code FORBIDDEN
+    return; // Exit the function early
+  }
+  await User.findOneAndUpdate({ refreshToken: refreshToken }, { refreshToken: "" }); // Corrected update query
+  res.clearCookie("refreshToken", { httpOnly: true, secure: true });
+  res.sendStatus(204); // Sending status code FORBIDDEN
+});
+
 
 module.exports = {
   createUser,
@@ -162,6 +225,6 @@ module.exports = {
   updateAUser,
   blockUser,
   unblockUser,
+  handleRefreshToken,
+  logoutUserControl,
 };
-
-// 1:07:33
