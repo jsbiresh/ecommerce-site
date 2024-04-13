@@ -1,5 +1,5 @@
 const generateToken = require("../config/jwtToken");
-const User = require("../models/UserModel");
+const User = require("../models/userModel");
 const asyncHandler = require("express-async-handler");
 
 // For User creation
@@ -88,7 +88,7 @@ const deleteAUser = asyncHandler(async (req, res) => {
   try {
     const userToBeDeleted = await User.findByIdAndDelete(id);
     if (userToBeDeleted) {
-    //   console.log(`Delete Success.`);
+      //   console.log(`Delete Success.`);
       res.status(204).json({ msg: `User with ID ${id} Deleted.` });
     } else {
       res.status(404).json({ message: "User Not Found." });
@@ -98,15 +98,60 @@ const deleteAUser = asyncHandler(async (req, res) => {
   }
 });
 
-// UPDATE a User 
+// UPDATE a User
 const updateAUser = asyncHandler(async (req, res) => {
-    const { id } = req.params
-    try {
-        const userToBeDeleted = await User.findByIdAndUpdate(id);
-    } catch (error) {
-        throw new Error(error);
-    }
-})
+  const { id } = req.user;
+  console.log(req.user);
+  console.log(id);
+  try {
+    const userToBeUpdated = await User.findByIdAndUpdate(
+      id,
+      {
+        firstname: req?.body?.firstname,
+        lastname: req?.body?.lastname,
+        email: req?.body?.email,
+        mobile: req?.body?.mobile,
+      },
+      { new: true }
+    );
+    res.json(userToBeUpdated);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+// BLOCK a User
+const blockUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  try {
+    const blockU = await User.findByIdAndUpdate(
+      id,
+      { isBlocked: true },
+      { new: true }
+    );
+    res.json({
+      msg: `User Blocked.`
+    })
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+// UNBLOCK a User
+const unblockUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  try {
+    const unblockU = await User.findByIdAndUpdate(
+      id,
+      { isBlocked: false },
+      { new: true }
+    );
+    res.json({
+      msg: `User Unblocked.`
+    })
+  } catch (error) {
+    throw new Error(error);
+  }
+});
 
 module.exports = {
   createUser,
@@ -114,6 +159,9 @@ module.exports = {
   getAllUsers,
   getAUser,
   deleteAUser,
+  updateAUser,
+  blockUser,
+  unblockUser,
 };
 
-1:07:33
+// 1:07:33
